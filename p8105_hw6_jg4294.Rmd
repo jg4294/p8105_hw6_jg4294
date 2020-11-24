@@ -45,10 +45,13 @@ homicides = read_csv("./data-homicides-master/homicide-data.csv") %>%
 
 **1. Data Import**
 ```{r import2}
+# Import
 birthweight = read_csv("./data#2/birthweight.csv") %>%
   janitor::clean_names()
 
-# convert numeric to factor
+# str(birthweight)
+
+# Tidy
 birthweight = 
   birthweight %>%
   mutate(
@@ -56,7 +59,15 @@ birthweight =
     frace = factor(frace, levels = c(1, 2, 3, 4, 8, 9), labels = c("white", "black", "asian"," puerto rican", "other", "unknown")),
     malform = factor(malform, labels = c("absent", "present")),
     mrace = factor(mrace,  c(1, 2, 3, 4, 8, 9), labels = c("white", "black", "asian"," puerto rican", "other", "unknown")),
-    wtgain = wtgain * 453.59237 )
+    
+    # pounds to grams
+    delwt = delwt * 453.59237,
+    ppwt = ppwt * 453.59237,
+    wtgain = wtgain * 453.59237,
+   
+    mrace = fct_infreq(mrace),
+    babysex = fct_infreq(babysex)
+    )
 
 # ways to check the existence of missing values:
 sum(is.na(birthweight))
@@ -64,22 +75,50 @@ sum(!complete.cases(birthweight))
 
 ```
 
-**My model:**
+**Overview: regression model based on all available variables**
+```{r all_var}
+all = lm(bwt~.,data = birthweight)
+summary(all)
+```
+Based on the summary table of regression on all the variables, we select variables with a p value of coefficient that is smaller than 0.
 
-According to the article: ["Factors Affecting Birth Weight of a Newborn"](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3390317/), we find several factors that may influence the birth weight of the infant. We pick the following factors ( "gestational age in weeks", "mother’s weight gain during pregnancy (pounds)" "average cigarettes smoking per day" ) and fit a linear model to see how birth weight are influenced by these factors.
+
+**My model:**
 
 * Response: bwt: baby’s birth weight (grams)
 * Predictors: 
+  * babysex: baby's sex
+  * bhead: baby's head circumference at birth (cm)
+  * blength: baby's length at birth (cm)
+  * delwt: month's weight at delivery (pounds)
+    * need to convert to grams!
   * gaweeks: gestational age in weeks
-  * wtgain: mother’s weight gain during pregnancy (pounds)
-    * where 1 pound = 453.59237 grams
+  * mrace: mother's race
+  * parity: number of live births prior to this pregnancy.
   * smoken: average number of cigarettes smoked per day during pregnancy
   
 ```{r my_model}
-my_model = lm(bwt ~ gaweeks + wtgain + smoken, data = birthweight) %>% broom::tidy() %>% knitr::kable()
-my_model
+my_model = lm(bwt ~ babysex + bhead + blength + delwt + smoken, data = birthweight) 
+my_model %>% broom::tidy() %>% knitr::kable()
+# summary(my_model)
 ```
 
+**My_model: A plot of model residuals against fitted values**
+```{r resid_fit_plot}
+pred_vs_resid =  
+    birthweight %>% 
+    add_predictions(my_model) %>% 
+    add_residuals(my_model) %>% 
+    select(pred, resid) %>%
+    ggplot(aes(x = pred, y = resid)) + 
+    geom_point(alpha = 0.5, size = 0.8, color = "lightblue")  + 
+    geom_smooth(method = "lm", color = "red", linetype = 2) + 
+    #geom_line(aes(y = 0), linetype = "dashed", color = "red") +
+    #geom_hline(yintercept = 0, color = "red", size = 1, linetype = 2) +
+    labs(title = "Predicted vs Residuals", 
+       x = "Predicted (grams)", 
+       y = "Residuals (grams)")
+```
 
 
 **Compare my model to the following two models:**
@@ -90,13 +129,57 @@ model1 = lm(bwt ~ blength + gaweeks, data = birthweight) %>%
   broom::tidy() %>%
   knitr::kable()
 #One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
-model2 = lm(bwt ~bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex , data = birthweight) %>%
+model2 = lm(bwt ~ bhead * blength * babysex, data = birthweight) %>%
   #broom::glance() %>%
   broom::tidy() %>%
   knitr::kable()
 
 model1; model2
 ```
+
+
+**Cross validation comparisons:**
+```{r cross_v}
+# test/train datasets
+cv_bw = 
+    crossv_mc(birthweight, 200) %>% 
+    mutate(
+        train = map(train, as.tibble),
+        test = map(test,as.tibble)
+    ) 
+# rmse values for iterated linear models
+cv_bw = cv_bw %>% 
+    mutate(
+        my_model = map(train,~lm(bwt ~ babysex + bhead + blength + delwt + mrace + gaweeks + smoken, data = .x)),
+        model1 = map(train,~lm(bwt ~ blength + gaweeks, data = .x)),
+        model2 = map(train,~lm(bwt ~ bhead * blength * babysex, data = .x))
+    ) %>% 
+    mutate(
+        rmse_my_model = map2_dbl(my_model, test, ~rmse(model = .x,data = .y)),
+        rmse_model1 = map2_dbl(model1, test, ~rmse(model = .x,data = .y)),
+        rmse_model2 = map2_dbl(model2, test, ~rmse(model = .x,data = .y))
+    )
+
+# plot of comparisons
+cv_bw %>% 
+  select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "models",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) %>% 
+  mutate(
+    models = fct_reorder(models,rmse)) %>% 
+  ggplot(aes(x = models, y = rmse)) +
+  geom_violin() +
+  labs(
+        title = "Cross Validation Comparisons",
+        x = "Model",
+        y = "Root Mean Squared Error")
+    
+```
+
 
 
 
