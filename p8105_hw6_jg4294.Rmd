@@ -36,10 +36,9 @@ scale_fill_discrete = scale_fill_viridis_d
 
 **1. Data Import**
 ```{r import1}
-
+homicides = read_csv("./data-homicides-master/homicide-data.csv") %>%
+  janitor::clean_names()
 ```
-
-
 
 
 ## Problem 2
@@ -53,15 +52,37 @@ birthweight = read_csv("./data#2/birthweight.csv") %>%
 birthweight = 
   birthweight %>%
   mutate(
-    babysex = as.factor(babysex),
-    frace = as.factor(frace),
-    malform = as.factor(malform),
-    mrace = as.factor(mrace)
-  )
+    babysex = factor(babysex, levels = c(1,2), labels = c("male", "female")),
+    frace = factor(frace, levels = c(1, 2, 3, 4, 8, 9), labels = c("white", "black", "asian"," puerto rican", "other", "unknown")),
+    malform = factor(malform, labels = c("absent", "present")),
+    mrace = factor(mrace,  c(1, 2, 3, 4, 8, 9), labels = c("white", "black", "asian"," puerto rican", "other", "unknown"))
+    )
 
-# check the existence of missing values:
-sum(is.na(birthweight)) #no missing value
+# ways to check the existence of missing values:
+sum(is.na(birthweight))
+sum(!complete.cases(birthweight))
+
 ```
+
+**My model:**
+
+```{r mu_model}
+
+```
+
+
+**Compare my model to the following two models:**
+```{r model_compare}
+# One using length at birth and gestational age as predictors (main effects only)
+model1 = lm(bwt ~ blength + gaweeks, data = birthweight) %>%
+  broom::glance()
+#One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
+model2 = lm(bwt ~bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex , data = birthweight) %>%
+  broom::glance()
+```
+
+
+
 
 
 ## Problem 3
