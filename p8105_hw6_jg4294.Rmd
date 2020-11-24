@@ -6,11 +6,19 @@ output: github_document
 ---
 
 ```{r setup, include = FALSE}
+library(tidyverse)
+library(modelr)
+library(mgcv)
+
 
 knitr::opts_chunk$set(
   fig.width = 6,
   fig.asp = .6,
-  out.width = "90%"
+  out.width = "90%", 
+  message = FALSE,
+  warning = FALSE,
+  collapse = TRUE,
+  echo = TRUE
 )
 
 theme_set(theme_minimal() + theme(legend.position = "bottom"))
@@ -24,19 +32,52 @@ scale_colour_discrete = scale_color_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 ```
 
-I'm an R Markdown document! 
+## Problem 1
 
-# Section 1
+**1. Data Import**
+```{r import1}
 
-Here's a **code chunk** that samples from 
-a _normal distribution_:
-
-```{r}
-samp = rnorm(100)
-length(samp)
 ```
 
-# Section 2
 
-I can take the mean of the sample, too!
-The mean is `r mean(samp)`.
+
+
+## Problem 2
+
+**1. Data Import**
+```{r import2}
+birthweight = read_csv("./data#2/birthweight.csv") %>%
+  janitor::clean_names()
+
+# convert numeric to factor
+birthweight = 
+  birthweight %>%
+  mutate(
+    babysex = as.factor(babysex),
+    frace = as.factor(frace),
+    malform = as.factor(malform),
+    mrace = as.factor(mrace)
+  )
+
+# check the existence of missing values:
+sum(is.na(birthweight)) #no missing value
+```
+
+
+## Problem 3
+
+**1. Data Import**
+```{r import3}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+```
+
