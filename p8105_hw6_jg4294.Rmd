@@ -267,4 +267,69 @@ weather_df =
   select(name, id, everything())
 ```
 
+```{r boot_strap}
+# get 5000 bootstrap samples
+boot_strap = 
+  weather_df %>% 
+  bootstrap(n = 5000) %>% 
+  mutate(
+    models = map(strap, ~lm(tmax ~ tmin, data = .x)),
+    tidy_models = map(models, broom::tidy),
+    glance_models = map(models, broom::glance)) %>% 
+  
+  unnest(tidy_models, glance_models) %>% 
+  select(.id, term, estimate, r.squared) %>% 
+  
+  pivot_wider(
+    names_from = term,
+    values_from = estimate) %>% 
+  rename(
+    beta_0 = `(Intercept)`,
+    beta_1 = tmin) %>% 
+  
+  mutate(log_beta = log(beta_0*beta_1)) %>% 
+  select(r.squared, log_beta)
+
+head(boot_strap)
+```
+
+```{r plot_r_squared}
+# Distribution of R_square
+boot_strap %>% 
+    ggplot(aes(x = r.squared)) + 
+    geom_density(fill = "lightblue", show.legend = TRUE) +
+    geom_vline(xintercept = mean(boot_strap$r.squared), linetype = "dashed", 
+                color = "blue", size = 1) +
+    labs(
+        title = "Distribution of R Square",
+        x = quote(R^2)
+    )
+```
+
+The value of R_square varies from 0 to 1, and we want to observe a R_square that is as close to 1 as possible because it indicates the variation in y is being well explained by x. 
+
+Based on density plot above, we find the distribution of R square is quite close to the shape of normal distribution with a mean of `r mean(boot_strap$r.squared)`. Good!
+
+```{r plot_beta0*1}
+# Distribution of log(β0_hat ∗β1_hat)
+boot_strap %>% 
+    ggplot(aes(x = log_beta)) + 
+    geom_density(fill = "lightpink", alpha = 0.25) +
+    geom_vline(xintercept = mean(boot_strap$log_beta), linetype = "dashed", 
+                color = "red", size = 1) +
+    labs(
+        title = "Distribution of log(β0_hat ∗ β1_hat)",
+        x = "log(β0_hat∗β1_hat)")
+```
+
+The distribution of log(β0_hat ∗β1_hat) is very close to the shape of normal distribution with a mean of `r mean(boot_strap$log_beta)`. Good!
+
+```{r 95CI}
+# 95% CI for r^2
+quantile(boot_strap$r.squared, probs = c(0.025,0.975)) %>% knitr::kable(caption = "95% CI for R_Square")
+
+# 95% CI for log(β0_hat∗β1_hat)
+quantile(boot_strap$log_beta, probs = c(0.025,0.975)) %>% knitr::kable(caption = "95% CI for log(β0_hat∗β1_hat)")
+
+```
 
