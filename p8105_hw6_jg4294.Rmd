@@ -175,8 +175,8 @@ my_model %>% broom::tidy() %>% knitr::kable()
 
 **My_model: A plot of model residuals against fitted values**
 ```{r resid_fit_plot}
-pred_vs_resid =  
-    birthweight %>% 
+
+birthweight %>% 
     add_predictions(my_model) %>% 
     add_residuals(my_model) %>% 
     select(pred, resid) %>%
@@ -190,6 +190,7 @@ pred_vs_resid =
        y = "Residuals (grams)")
 ```
 
+Based on the graph above, this is no obvious relationship between the residuals and fitted values. All we can see is a huge cluster.
 
 **Compare my model to the following two models:**
 ```{r model_compare}
@@ -198,13 +199,16 @@ model1 = lm(bwt ~ blength + gaweeks, data = birthweight) %>%
   #broom::glance() %>% 
   broom::tidy() %>%
   knitr::kable()
+model1
+
 #One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
 model2 = lm(bwt ~ bhead * blength * babysex, data = birthweight) %>%
   #broom::glance() %>%
   broom::tidy() %>%
   knitr::kable()
+model2
 
-model1; model2
+
 ```
 
 
@@ -245,10 +249,13 @@ cv_bw %>%
   geom_violin() +
   labs(
         title = "Cross Validation Comparisons",
-        x = "Model",
-        y = "Root Mean Squared Error")
+        x = "Models",
+        y = "RMSE")
     
 ```
+
+Based on the the prediction error distribution for each candidate model above, we find that `my_model` has the best `RMSE` and it seems to perform best among the three models, and the `model1`(with main effect only) perform the worst among the three models. 
+
 
 ## Problem 3
 
@@ -289,7 +296,6 @@ boot_strap =
   
   mutate(log_beta = log(beta_0*beta_1)) %>% 
   select(r.squared, log_beta)
-
 head(boot_strap)
 ```
 
@@ -310,7 +316,7 @@ The value of R_square varies from 0 to 1, and we want to observe a R_square that
 
 Based on density plot above, we find the distribution of R square is quite close to the shape of normal distribution with a mean of `r mean(boot_strap$r.squared)`. Good!
 
-```{r plot_beta0*1}
+```{r plot_beta}
 # Distribution of log(β0_hat ∗β1_hat)
 boot_strap %>% 
     ggplot(aes(x = log_beta)) + 
@@ -327,9 +333,6 @@ The distribution of log(β0_hat ∗β1_hat) is very close to the shape of normal
 ```{r 95CI}
 # 95% CI for r^2
 quantile(boot_strap$r.squared, probs = c(0.025,0.975)) %>% knitr::kable(caption = "95% CI for R_Square")
-
 # 95% CI for log(β0_hat∗β1_hat)
 quantile(boot_strap$log_beta, probs = c(0.025,0.975)) %>% knitr::kable(caption = "95% CI for log(β0_hat∗β1_hat)")
-
 ```
-
